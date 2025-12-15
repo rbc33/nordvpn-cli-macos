@@ -15,6 +15,9 @@ class StatusWidget(Static):
     def refresh_status(self) -> None:
         """Update status display."""
         label = self.query_one("#status-text", Label)
+        if not wireguard.has_sudo_cached():
+            label.update("[dim]Run 'sudo -v' to check status[/]")
+            return
         if wireguard.is_connected():
             ip_info = api.get_external_ip()
             ip_text = f"{ip_info['ip']} ({ip_info.get('city', '?')})" if ip_info else "Unknown"

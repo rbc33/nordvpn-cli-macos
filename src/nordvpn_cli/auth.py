@@ -7,7 +7,7 @@ from urllib.parse import unquote
 import typer
 from rich.prompt import Prompt
 
-from . import api, config
+from . import api, config, url_handler
 from .ui import console, print_error, print_success
 
 
@@ -62,8 +62,11 @@ def do_oauth_flow() -> None:
     config.save_oauth_session(session.verifier, session.attempt)
     console.print("Opening browser for login...")
     webbrowser.open(session.login_url)
-    console.print("\nAfter logging in, right-click 'Continue' and copy link.")
-    console.print("Then run: [cyan]nordvpn login --callback 'nordvpn://...'[/cyan]")
-    cb = Prompt.ask("\nCallback URL (or Enter to do later)")
-    if cb:
-        do_callback_login(cb, session.verifier, session.attempt)
+    if url_handler.APP_PATH.exists():
+        console.print("\nClick 'Continue' in browser - login will complete automatically.")
+    else:
+        console.print("\nAfter login, copy the callback URL and paste below.")
+        console.print("[dim]Tip: run 'nordvpn setup' for automatic callback handling[/dim]")
+        cb = Prompt.ask("\nCallback URL (or Enter to cancel)")
+        if cb:
+            do_callback_login(cb, session.verifier, session.attempt)

@@ -4,11 +4,18 @@ import typer
 from rich.prompt import Prompt
 from rich.table import Table
 
-from . import api, config, wireguard
+from . import api, config, url_handler, wireguard
 from .auth import do_callback_login, do_oauth_flow, do_token_login, fail
 from .ui import console, load_color, print_success, print_warn
 
 app = typer.Typer(help="NordVPN CLI for macOS using WireGuard")
+
+
+@app.command()
+def setup() -> None:
+    """Install nordvpn:// URL handler for seamless OAuth login."""
+    path = url_handler.install_handler()
+    print_success(f"URL handler installed: {path}")
 
 
 @app.command()
@@ -28,9 +35,7 @@ def login(
 @app.command()
 def logout() -> None:
     """Remove credentials from Keychain."""
-    config.delete_token()
-    config.delete_private_key()
-    config.delete_oauth_session()
+    config.delete_token(), config.delete_private_key(), config.delete_oauth_session()
     print_success("Logged out")
 
 
@@ -66,16 +71,13 @@ def _do_connect(private_key: str, country: str | None, interactive: bool) -> Non
 
 def _select_server(servers: list[api.Server]) -> api.Server:
     table = Table(title="Available Servers")
-    table.add_column("#", style="dim")
-    table.add_column("Server")
-    table.add_column("Location")
-    table.add_column("Load")
+    for col in [("#", "dim"), ("Server", None), ("Location", None), ("Load", None)]:
+        table.add_column(col[0], style=col[1])
     for i, s in enumerate(servers, 1):
-        load = f"[{load_color(s.load)}]{s.load}%[/]"
-        table.add_row(str(i), s.hostname, f"{s.city}, {s.country}", load)
+        ld = f"[{load_color(s.load)}]{s.load}%[/]"
+        table.add_row(str(i), s.hostname, f"{s.city}, {s.country}", ld)
     console.print(table)
-    idx = int(Prompt.ask("Select server", default="1")) - 1
-    return servers[max(0, min(idx, len(servers) - 1))]
+    return servers[max(0, min(int(Prompt.ask("Select", default="1")) - 1, len(servers) - 1))]
 
 
 @app.command()
@@ -105,14 +107,13 @@ def status() -> None:
 def _print_connected_status(ip_info: dict | None, wg_status: dict) -> None:
     console.print("[green]Connected[/green]")
     if ip_info:
-        ip = ip_info.get("ip")
         loc = f"{ip_info.get('city')}, {ip_info.get('country')}"
-        console.print(f"  IP: [cyan]{ip}[/cyan] ({loc})")
+        console.print(f"  IP: [cyan]{ip_info['ip']}[/cyan] ({loc})")
         if org := ip_info.get("org"):
             console.print(f"  Org: {org}")
-    for key, lbl in [("endpoint", "Server"), ("handshake", "Handshake"), ("transfer", "Transfer")]:
-        if val := wg_status.get(key):
-            console.print(f"  {lbl}: {val}")
+    for k, lbl in [("endpoint", "Server"), ("handshake", "Handshake"), ("transfer", "Transfer")]:
+        if v := wg_status.get(k):
+            console.print(f"  {lbl}: {v}")
 
 
 @app.command()

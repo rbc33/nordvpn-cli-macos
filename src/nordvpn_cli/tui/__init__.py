@@ -60,14 +60,22 @@ class NordVPNApp(App[None]):
         if success:
             self._refresh_status()
 
+    def _check_sudo(self) -> bool:
+        if wireguard.has_sudo_cached():
+            return True
+        self.notify("Run 'sudo -v' in terminal first", severity="error", timeout=5)
+        return False
+
     def action_connect(self) -> None:
         if not config.get_private_key():
             self.notify("Not logged in. Press L to login.", severity="warning")
             return
+        if not self._check_sudo():
+            return
         self.push_screen(ConnectScreen(), callback=self._on_server_selected)
 
     def _on_server_selected(self, server: api.Server | None) -> None:
-        if not server:
+        if not server or not self._check_sudo():
             return
         private_key = config.get_private_key()
         if not private_key:
@@ -80,6 +88,8 @@ class NordVPNApp(App[None]):
         self._refresh_status()
 
     def action_disconnect(self) -> None:
+        if not self._check_sudo():
+            return
         if wireguard.is_connected():
             wireguard.disconnect()
             self.notify("Disconnected")

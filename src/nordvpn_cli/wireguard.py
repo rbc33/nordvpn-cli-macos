@@ -8,6 +8,14 @@ from pathlib import Path
 INTERFACE_NAME = "nordvpn"
 
 
+def has_sudo_cached() -> bool:
+    """Check if sudo credentials are cached (non-interactive)."""
+    result = subprocess.run(
+        ["sudo", "-n", "true"], capture_output=True, check=False
+    )
+    return result.returncode == 0
+
+
 def _find_wg_quick() -> str:
     """Find wg-quick binary path."""
     # Check common Homebrew paths first (sudo doesn't inherit PATH)

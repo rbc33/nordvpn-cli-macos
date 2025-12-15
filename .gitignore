@@ -3,3 +3,7 @@ __pycache__/
 .venv/
 dist/
 *.egg-info/
+.DS_Store
+AGENTS.md
+CLAUDE.md
+.githooks/
