@@ -31,8 +31,10 @@ Do **not** include AI co-author lines in commit messages.
 nordvpn allowlist add port 22
 nordvpn allowlist add port 80
 nordvpn allowlist add subnet 192.168.0.0/24
+nordvpn allowlist add local
 nordvpn allowlist remove port 22
 nordvpn allowlist remove subnet 192.168.0.0/24
+nordvpn allowlist remove local
 nordvpn allowlist remove all
 nordvpn allowlist list
 ```
