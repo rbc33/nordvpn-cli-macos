@@ -1,6 +1,7 @@
 """WireGuard configuration management."""
 
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -49,6 +50,13 @@ def _find_wg() -> str:
 _GW_TMP = "/tmp/nordvpn-allowlist-gw"
 
 
+def _resolve_ip(hostname: str) -> str | None:
+    try:
+        return socket.gethostbyname(hostname)
+    except OSError:
+        return None
+
+
 def _build_config(private_key: str, public_key: str, endpoint: str) -> str:
     data = _allowlist.get()
     ports = data["ports"]
@@ -62,6 +70,17 @@ def _build_config(private_key: str, public_key: str, endpoint: str) -> str:
         "Address = 10.5.0.2/32",
         "DNS = 103.86.96.100, 103.86.99.100",
     ]
+
+    if subnets:
+        # wg-quick only protects the endpoint route when AllowedIPs=0.0.0.0/0 (AUTO_ROUTE4).
+        # With computed subnets the endpoint IP falls inside AllowedIPs → routing loop.
+        # Fix: add a host route for the endpoint via the physical gateway before routes go in.
+        endpoint_ip = _resolve_ip(endpoint)
+        if endpoint_ip:
+            lines += [
+                f"PreUp = GW=$(route -n get default 2>/dev/null | awk '/gateway:/{{print $2}}') && route -q -n add -inet {endpoint_ip} -gateway \"$GW\" 2>/dev/null; true",
+                f"PostDown = route -q -n delete -inet {endpoint_ip} 2>/dev/null; true",
+            ]
 
     if ports:
         port_list = ", ".join(str(p) for p in ports)
