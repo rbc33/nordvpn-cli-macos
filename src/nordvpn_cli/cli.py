@@ -84,6 +84,32 @@ def allowlist_remove_subnet(subnet: str = typer.Argument(..., help="Subnet in CI
         fail(f"Invalid subnet: {e}")
 
 
+@allowlist_add_app.command("local")
+def allowlist_add_local() -> None:
+    """Allow local LAN subnet to bypass the VPN."""
+    try:
+        subnet = _allowlist.add_local()
+        print_success(f"Local subnet {subnet} added to allowlist")
+        print_warn("Reconnect for changes to take effect")
+    except RuntimeError as e:
+        fail(str(e))
+
+
+@allowlist_remove_app.command("local")
+def allowlist_remove_local() -> None:
+    """Remove local LAN subnet from the allowlist."""
+    try:
+        subnet = _allowlist.remove_local()
+        if subnet:
+            print_success(f"Local subnet {subnet} removed from allowlist")
+            print_warn("Reconnect for changes to take effect")
+        else:
+            subnet = _allowlist.get_local_subnet()
+            print_warn(f"Local subnet {subnet} not in allowlist")
+    except RuntimeError as e:
+        fail(str(e))
+
+
 @allowlist_remove_app.command("all")
 def allowlist_remove_all() -> None:
     """Clear the entire allowlist."""
