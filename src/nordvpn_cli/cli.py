@@ -4,11 +4,92 @@ import typer
 from rich.prompt import Prompt
 from rich.table import Table
 
+from . import allowlist as _allowlist
 from . import api, config, url_handler, wireguard
 from .auth import do_callback_login, do_oauth_flow, do_token_login, fail
 from .ui import console, load_color, print_success, print_warn
 
 app = typer.Typer(help="NordVPN CLI for macOS using WireGuard")
+allowlist_app = typer.Typer(help="Manage ports and subnets that bypass the VPN")
+app.add_typer(allowlist_app, name="allowlist")
+
+allowlist_add_app = typer.Typer(help="Add to allowlist")
+allowlist_remove_app = typer.Typer(help="Remove from allowlist")
+allowlist_app.add_typer(allowlist_add_app, name="add")
+allowlist_app.add_typer(allowlist_remove_app, name="remove")
+
+
+@allowlist_app.command("list")
+def allowlist_list() -> None:
+    """Show current allowlist."""
+    data = _allowlist.get()
+    if not data["ports"] and not data["subnets"]:
+        console.print("[dim]Allowlist is empty[/dim]")
+        return
+    if data["ports"]:
+        console.print("[bold]Ports:[/bold]")
+        for p in data["ports"]:
+            console.print(f"  {p}")
+    if data["subnets"]:
+        console.print("[bold]Subnets:[/bold]")
+        for s in data["subnets"]:
+            console.print(f"  {s}")
+
+
+@allowlist_add_app.command("port")
+def allowlist_add_port(port: int = typer.Argument(..., help="Port number (1-65535)")) -> None:
+    """Allow a port to bypass the VPN."""
+    if not 1 <= port <= 65535:
+        fail("Port must be 1-65535")
+    if _allowlist.add_port(port):
+        print_success(f"Port {port} added to allowlist")
+        print_warn("Reconnect for changes to take effect")
+    else:
+        print_warn(f"Port {port} already in allowlist")
+
+
+@allowlist_add_app.command("subnet")
+def allowlist_add_subnet(subnet: str = typer.Argument(..., help="Subnet in CIDR notation")) -> None:
+    """Allow a subnet to bypass the VPN."""
+    try:
+        if _allowlist.add_subnet(subnet):
+            print_success(f"Subnet {subnet} added to allowlist")
+            print_warn("Reconnect for changes to take effect")
+        else:
+            print_warn(f"Subnet {subnet} already in allowlist")
+    except ValueError as e:
+        fail(f"Invalid subnet: {e}")
+
+
+@allowlist_remove_app.command("port")
+def allowlist_remove_port(port: int = typer.Argument(..., help="Port number")) -> None:
+    """Remove a port from the allowlist."""
+    if _allowlist.remove_port(port):
+        print_success(f"Port {port} removed from allowlist")
+        print_warn("Reconnect for changes to take effect")
+    else:
+        print_warn(f"Port {port} not in allowlist")
+
+
+@allowlist_remove_app.command("subnet")
+def allowlist_remove_subnet(subnet: str = typer.Argument(..., help="Subnet in CIDR notation")) -> None:
+    """Remove a subnet from the allowlist."""
+    try:
+        if _allowlist.remove_subnet(subnet):
+            print_success(f"Subnet {subnet} removed from allowlist")
+            print_warn("Reconnect for changes to take effect")
+        else:
+            print_warn(f"Subnet {subnet} not in allowlist")
+    except ValueError as e:
+        fail(f"Invalid subnet: {e}")
+
+
+@allowlist_remove_app.command("all")
+def allowlist_remove_all() -> None:
+    """Clear the entire allowlist."""
+    _allowlist.remove_all()
+    print_success("Allowlist cleared")
+    print_warn("Reconnect for changes to take effect")
 
 
 @app.command()

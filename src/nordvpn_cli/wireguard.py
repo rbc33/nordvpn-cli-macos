@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import allowlist as _allowlist
+
 INTERFACE_NAME = "nordvpn"
 
 
@@ -44,18 +46,49 @@ def _find_wg() -> str:
     )
 
 
-CONFIG_TEMPLATE = """\
-[Interface]
-PrivateKey = {private_key}
-Address = 10.5.0.2/32
-DNS = 103.86.96.100, 103.86.99.100
+_GW_TMP = "/tmp/nordvpn-allowlist-gw"
 
-[Peer]
-PublicKey = {public_key}
-AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = {endpoint}:51820
-PersistentKeepalive = 25
-"""
+
+def _build_config(private_key: str, public_key: str, endpoint: str) -> str:
+    data = _allowlist.get()
+    ports = data["ports"]
+    subnets = data["subnets"]
+
+    allowed_ips = _allowlist.compute_allowed_ips(subnets) if subnets else "0.0.0.0/0, ::/0"
+
+    lines = [
+        "[Interface]",
+        f"PrivateKey = {private_key}",
+        "Address = 10.5.0.2/32",
+        "DNS = 103.86.96.100, 103.86.99.100",
+    ]
+
+    if ports:
+        port_list = ", ".join(str(p) for p in ports)
+        pf_tcp = f"pass out route-to ($IF $GW) proto tcp from any to any port {{{port_list}}}"
+        pf_udp = f"pass out route-to ($IF $GW) proto udp from any to any port {{{port_list}}}"
+        postup = (
+            f"if [ -s {_GW_TMP} ]; then "
+            f"read -r GW IF < {_GW_TMP}; "
+            f'{{ echo "{pf_tcp}"; echo "{pf_udp}"; }} | pfctl -a nordvpn -f - 2>/dev/null; '
+            f"pfctl -e 2>/dev/null; true; fi"
+        )
+        lines += [
+            f"PreUp = route -n get default 2>/dev/null | awk '/gateway:/ {{gw=$2}} /interface:/ {{iff=$2}} END {{print gw, iff}}' > {_GW_TMP}",
+            f"PostUp = {postup}",
+            f"PreDown = pfctl -a nordvpn -F all 2>/dev/null; rm -f {_GW_TMP}",
+        ]
+
+    lines += [
+        "",
+        "[Peer]",
+        f"PublicKey = {public_key}",
+        f"AllowedIPs = {allowed_ips}",
+        f"Endpoint = {endpoint}:51820",
+        "PersistentKeepalive = 25",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def get_config_dir() -> Path:
@@ -85,11 +118,7 @@ def get_config_path() -> Path:
 
 def write_config(private_key: str, public_key: str, endpoint: str) -> Path:
     """Write WireGuard configuration file."""
-    config = CONFIG_TEMPLATE.format(
-        private_key=private_key,
-        public_key=public_key,
-        endpoint=endpoint,
-    )
+    config = _build_config(private_key, public_key, endpoint)
     config_path = get_config_path()
     config_path.write_text(config)
     config_path.chmod(0o600)
