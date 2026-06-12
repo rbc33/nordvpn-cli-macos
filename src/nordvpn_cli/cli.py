@@ -197,6 +197,12 @@ def disconnect() -> None:
     print_success("Disconnected")
 
 
+@app.command(name="d", hidden=True)
+def disconnect_alias() -> None:
+    """Alias for disconnect."""
+    disconnect()
+
+
 @app.command()
 def status() -> None:
     """Show connection status and external IP."""

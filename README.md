@@ -4,12 +4,13 @@
 ## Commands
 
 ```bash
-uv tool install .         # install nordvpn + nordvpn-tui globally
-uv sync                   # install dependencies (dev)
-uv run nordvpn --help     # run CLI
-uv run nordvpn-tui        # run TUI
-uv run ruff check src/    # lint
-uv run ruff format src/   # format
+uv tool install .                   # install nordvpn + nordvpn-tui globally
+uv tool install . --reinstall       # reinstall nordvpn + nordvpn-tui globally
+uv sync                             # install dependencies (dev)
+uv run nordvpn --help               # run CLI
+uv run nordvpn-tui                  # run TUI
+uv run ruff check src/              # lint
+uv run ruff format src/             # format
 ```
 
 No test suite exists yet.
@@ -90,3 +91,5 @@ Two entry points: `nordvpn` (CLI via Typer) and `nordvpn-tui` (TUI via Textual).
 ### TUI sudo note
 
 `wg-quick` requires sudo. The TUI has no TTY for password prompts — user must run `sudo -v` in a terminal before launching the TUI.
+
+### Install
